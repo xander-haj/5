@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR Scanner Pro</title>
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+    <script async src="https://docs.opencv.org/master/opencv.js" onload="onOpenCvReady();"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #1a1a1a;
+            --surface-dark: #2d2d2d;
+            --primary: #00ff88;
+            --error: #ff4444;
+            --success: #00ff88;
+            --text-primary: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 1rem;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #video {
+            width: 100%;
+            height: auto;
+            background: #000;
+        }
+
+        .roi-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 150px;
+            border: 3px solid var(--error);
+            border-radius: 8px;
+            pointer-events: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem;
+        }
+
+        .btn {
+            background: var(--surface-dark);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            color: var(--text-primary);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            filter: brightness(1.2);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--surface-dark);
+            padding: 2rem;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .settings-group {
+            margin: 1rem 0;
+        }
+
+        .settings-group label {
+            display: block;
+            margin: 0.5rem 0;
+        }
+
+        .slider {
+            width: 100%;
+            margin: 0.5rem 0;
+        }
+
+        .device-select {
+            width: 100%;
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            background: var(--bg-dark);
+            border: 1px solid #444;
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="video-container">
+            <video id="video" playsinline></video>
+            <div class="roi-overlay" id="roi"></div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn" id="preprocessBtn">
+                <i class="fas fa-sliders"></i> Preprocessing
+            </button>
+            <button class="btn" id="ocrBtn">
+                <i class="fas fa-cog"></i> OCR Settings
+            </button>
+            <button class="btn" id="cameraBtn">
+                <i class="fas fa-camera"></i> Camera Settings
+            </button>
+        </div>
+    </div>
+
+    <!-- Preprocessing Modal -->
+    <div id="preprocessModal" class="modal">
+        <div class="modal-content">
+            <h2>Preprocessing Settings</h2>
+            <div class="settings-group">
+                <label><input type="checkbox" id="grayscale"> Grayscale</label>
+                <label><input type="checkbox" id="threshold"> Threshold</label>
+                <label><input type="checkbox" id="edge"> Edge Detection</label>
+            </div>
+            <div class="settings-group">
+                <label>Contrast <input type="range" id="contrast" class="slider" min="0" max="2" step="0.1" value="1"></label>
+                <label>Brightness <input type="range" id="brightness" class="slider" min="-50" max="50" step="1" value="0"></label>
+            </div>
+            <button class="btn" onclick="closeModal('preprocessModal')">Close</button>
+        </div>
+    </div>
+
+    <!-- OCR Settings Modal -->
+    <div id="ocrModal" class="modal">
+        <div class="modal-content">
+            <h2>OCR Configuration</h2>
+            <div class="settings-group">
+                <label>Workers (1-4):
+                    <input type="number" id="workers" min="1" max="4" value="2">
+                </label>
+                <label>Confidence Threshold:
+                    <input type="range" id="confidence" class="slider" min="0" max="100" value="70">
+                </label>
+            </div>
+            <button class="btn" onclick="closeModal('ocrModal')">Close</button>
+        </div>
+    </div>
+
+    <!-- Camera Settings Modal -->
+    <div id="cameraModal" class="modal">
+        <div class="modal-content">
+            <h2>Camera Configuration</h2>
+            <div class="settings-group">
+                <label>Camera:
+                    <select id="cameraSelect" class="device-select"></select>
+                </label>
+                <label>Resolution:
+                    <select id="resolutionSelect" class="device-select"></select>
+                </label>
+            </div>
+            <button class="btn" onclick="closeModal('cameraModal')">Close</button>
+        </div>
+    </div>
+
+    <script>
+        let video = document.getElementById('video');
+        let roi = document.getElementById('roi');
+        let currentStream;
+        let ocrWorker;
+        let cvReady = false;
+        let processing = false;
+
+        // Configuration
+        let config = {
+            preprocessing: {
+                grayscale: false,
+                threshold: false,
+                edge: false,
+                contrast: 1,
+                brightness: 0
+            },
+            ocr: {
+                workers: 2,
+                confidence: 70
+            }
+        };
+
+        // OpenCV Ready Handler
+        function onOpenCvReady() {
+            cvReady = true;
+            console.log('OpenCV ready');
+        }
+
+        // Initialize Tesseract
+        async function initOCR() {
+            ocrWorker = await Tesseract.createWorker({
+                workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/worker.min.js',
+                langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+                corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.2/tesseract-core.wasm.js',
+            });
+            await ocrWorker.load();
+            await ocrWorker.loadLanguage('eng');
+            await ocrWorker.initialize('eng');
+        }
+
+        // Camera Handling
+        async function setupCamera(deviceId, resolution) {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: {
+                    deviceId: deviceId ? { exact: deviceId } : undefined,
+                    width: { ideal: resolution ? parseInt(resolution.split('x')[0]) : 1280 },
+                    height: { ideal: resolution ? parseInt(resolution.split('x')[1]) : 720 }
+                }
+            };
+
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+                await video.play();
+                startProcessing();
+            } catch (error) {
+                console.error('Camera error:', error);
+            }
+        }
+
+        // Frame Processing
+        async function processFrame() {
+            if (!processing || !cvReady) return;
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const roiRect = roi.getBoundingClientRect();
+            
+            canvas.width = roiRect.width;
+            canvas.height = roiRect.height;
+            
+            ctx.drawImage(
+                video,
+                roiRect.left, roiRect.top, roiRect.width, roiRect.height,
+                0, 0, roiRect.width, roiRect.height
+            );
+
+            let src = cv.imread(canvas);
+            let dst = new cv.Mat();
+
+            // Preprocessing pipeline
+            if (config.preprocessing.grayscale) {
+                cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY);
+            }
+            if (config.preprocessing.contrast !== 1) {
+                src.convertTo(src, -1, config.preprocessing.contrast, 0);
+            }
+            if (config.preprocessing.brightness !== 0) {
+                src.convertTo(src, -1, 1, config.preprocessing.brightness);
+            }
+            if (config.preprocessing.threshold) {
+                cv.threshold(src, dst, 127, 255, cv.THRESH_BINARY);
+                src = dst;
+            }
+            if (config.preprocessing.edge) {
+                cv.Canny(src, dst, 50, 150);
+                src = dst;
+            }
+
+            // OCR Processing
+            try {
+                const { data: { text, confidence } } = await ocrWorker.recognize(src);
+                roi.style.borderColor = confidence > config.ocr.confidence ? 
+                    'var(--success)' : 'var(--error)';
+            } catch (error) {
+                console.error('OCR error:', error);
+            }
+
+            src.delete();
+            dst.delete();
+            requestAnimationFrame(processFrame);
+        }
+
+        // UI Handlers
+        function startProcessing() {
+            if (!processing) {
+                processing = true;
+                processFrame();
+            }
+        }
+
+        function stopProcessing() {
+            processing = false;
+        }
+
+        // Modal Handling
+        function openModal(id) {
+            document.getElementById(id).style.display = 'flex';
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        // Device Enumeration
+        async function populateCameras() {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(d => d.kind === 'videoinput');
+            const select = document.getElementById('cameraSelect');
+            
+            select.innerHTML = videoDevices
+                .map(d => `<option value="${d.deviceId}">${d.label || 'Camera'}</option>`)
+                .join('');
+        }
+
+        async function populateResolutions() {
+            const select = document.getElementById('resolutionSelect');
+            const resolutions = ['640x480', '1280x720', '1920x1080'];
+            select.innerHTML = resolutions.map(r => `<option>${r}</option>`).join('');
+        }
+
+        // Event Listeners
+        window.addEventListener('load', async () => {
+            if (sessionStorage.getItem('camera-permission-granted')) {
+                sessionStorage.removeItem('camera-permission-granted');
+                await initOCR();
+                await setupCamera();
+                await populateCameras();
+                await populateResolutions();
+            } else {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    stream.getTracks().forEach(track => track.stop());
+                    sessionStorage.setItem('camera-permission-granted', 'true');
+                    window.location.reload();
+                } catch (error) {
+                    console.error('Permission denied:', error);
+                }
+            }
+        });
+
+        document.getElementById('preprocessBtn').addEventListener('click', () => openModal('preprocessModal'));
+        document.getElementById('ocrBtn').addEventListener('click', () => openModal('ocrModal'));
+        document.getElementById('cameraBtn').addEventListener('click', () => openModal('cameraModal'));
+
+        document.getElementById('cameraSelect').addEventListener('change', (e) => {
+            setupCamera(e.target.value);
+        });
+
+        document.getElementById('resolutionSelect').addEventListener('change', (e) => {
+            setupCamera(document.getElementById('cameraSelect').value, e.target.value);
+        });
+
+        // Configuration Bindings
+        document.getElementById('grayscale').addEventListener('change', (e) => {
+            config.preprocessing.grayscale = e.target.checked;
+        });
+
+        document.getElementById('confidence').addEventListener('input', (e) => {
+            config.ocr.confidence = e.target.value;
+        });
+
+        // Cleanup
+        window.addEventListener('beforeunload', () => {
+            if (ocrWorker) ocrWorker.terminate();
+            if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+        });
+    </script>
+</body>
+</html>
