@@ -1,0 +1,184 @@
+/* Dark Theme, Mobile-Focused, Minimalistic */
+
+/* Reset / Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: sans-serif;
+}
+
+html, body {
+  background: #1e1e1e;
+  color: #fff;
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Header */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: #2a2a2a;
+}
+
+.app-header h1 {
+  font-size: 1.2rem;
+  margin-right: auto;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.icon-button {
+  background: #3a3a3a;
+  color: #fff;
+  border: none;
+  font-size: 1.2rem;
+  padding: 0.5rem 0.8rem;
+  cursor: pointer;
+  border-radius: 0.25rem;
+}
+
+.icon-button:hover {
+  background: #4a4a4a;
+}
+
+/* Video Container */
+.video-container {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background: #000;
+}
+
+#video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#overlayCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* ROI Box */
+#roi-box {
+  position: absolute;
+  width: 50vw; /* Adjust ROI size as needed */
+  height: 30vw; 
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid red; /* default red, will be updated dynamically to green */
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* Footer */
+.app-footer {
+  background: #2a2a2a;
+  padding: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.large-button {
+  background: #3a3a3a;
+  color: #fff;
+  border: none;
+  font-size: 1rem;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+  border-radius: 0.25rem;
+}
+
+.large-button:hover {
+  background: #4a4a4a;
+}
+
+/* Modals */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; 
+  z-index: 9999; 
+  left: 0;
+  top: 0;
+  width: 100%; 
+  height: 100%; 
+  overflow: auto; 
+  background-color: rgba(0,0,0,0.6);
+}
+
+.modal-content {
+  background-color: #2a2a2a;
+  margin: 10% auto;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  width: 90%;
+  max-width: 500px;
+  position: relative;
+}
+
+.close {
+  color: #999;
+  float: right;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.close:hover {
+  color: #fff;
+}
+
+/* Modal internals */
+.preprocessing-option,
+.ocr-setting,
+.camera-setting {
+  margin: 1rem 0;
+}
+
+.preprocessing-option label,
+.ocr-setting label,
+.camera-setting label {
+  margin-left: 0.5rem;
+  font-size: 1rem;
+}
+
+.preprocessing-option input[type="range"],
+.ocr-setting input[type="range"],
+.camera-setting select {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+/* The pre tag for extracted text */
+#extractedTextOutput {
+  background: #111;
+  padding: 0.5rem;
+  color: #0f0;
+  font-family: monospace;
+  white-space: pre-wrap; 
+  word-wrap: break-word; 
+}
+
+@media (max-width: 767px) {
+  .modal-content {
+    width: 90%;
+    margin-top: 50%;
+  }
+}
