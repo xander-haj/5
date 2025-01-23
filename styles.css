@@ -1,145 +1,164 @@
-/* Dark-themed, sleek, minimalistic styling */
-
-/* Global resets & theme */
-html, body {
+/* Dark Theme - basic reset */
+* {
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
   font-family: sans-serif;
-  background-color: #111; /* dark background */
-  color: #ccc; /* light text */
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+}
+
+html, body {
+  background-color: #121212;
+  color: #ffffff;
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* Header */
-.app-header {
-  padding: 1rem;
+header {
   text-align: center;
-  background: #222;
-  border-bottom: 1px solid #333;
+  padding: 1rem;
+  background: #1f1f1f;
+  box-shadow: 0 2px 3px rgba(0,0,0,0.5);
 }
 
-.app-header h1 {
-  margin: 0;
-  color: #eee;
-  font-weight: 300;
+header h1 {
+  font-size: 1.2rem;
+  font-weight: normal;
+  color: #fff;
 }
 
-/* Video Container */
-.video-container {
+/* Scanner container */
+#scanner-container {
   position: relative;
   width: 100%;
-  max-width: 900px;
-  margin: 1rem auto;
-  background: #000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  height: auto;
+  overflow: hidden;
 }
 
 #video {
   width: 100%;
   height: auto;
-  background: #333;
+  display: block;
 }
 
-/* ROI box - default red border */
-#roiBox {
+#roi-box {
   position: absolute;
-  border: 2px solid red; /* dynamically changed to green if text is detected */
-  pointer-events: none; /* let clicks pass through */
+  top: 50%;
+  left: 50%;
+  width: 70%;
+  height: 20%;
+  transform: translate(-50%, -50%);
+  border: 3px solid red; /* default red */
+  pointer-events: none;
   box-sizing: border-box;
-  transition: border-color 0.3s ease;
+  border-radius: 4px;
 }
 
-/* Controls */
-.controls {
-  text-align: center;
-  margin: 1rem auto;
-  max-width: 900px;
+/* Footer */
+footer {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: #1f1f1f;
+  padding: 0.5rem;
+  box-shadow: 0 -2px 3px rgba(0,0,0,0.5);
 }
 
-.controls button {
+footer button {
   background: #333;
-  color: #ccc;
-  border: 1px solid #666;
-  padding: 0.5rem 1rem;
-  margin: 0.25rem;
+  color: #fff;
+  border: 1px solid #444;
+  padding: 0.6rem 0.8rem;
+  border-radius: 4px;
   cursor: pointer;
-  transition: background 0.2s ease;
+  font-size: 1rem;
 }
 
-.controls button:hover {
+footer button:hover {
   background: #444;
 }
 
 /* Modals */
 .modal {
   display: none; /* Hidden by default */
-  position: fixed; 
-  z-index: 999; 
+  position: fixed;
+  z-index: 9999;
   left: 0;
   top: 0;
   width: 100%;
   height: 100%;
-  overflow: auto; 
-  background-color: rgba(0,0,0,0.7); /* overlay */
+  overflow: auto;
+  background-color: rgba(0,0,0,0.5);
+  padding-top: 60px;
 }
 
-/* Modal Content Box */
 .modal-content {
-  background-color: #222;
-  margin: 10% auto; 
+  background-color: #1f1f1f;
+  margin: auto;
   padding: 1rem;
   border: 1px solid #444;
   width: 90%;
-  max-width: 500px;
+  max-width: 400px;
+  border-radius: 6px;
   position: relative;
-  border-radius: 4px;
 }
 
-/* Close Button */
+.modal-content h2 {
+  margin-bottom: 1rem;
+}
+
 .close {
-  color: #999;
+  color: #aaa;
   float: right;
   font-size: 1.5rem;
   font-weight: bold;
   cursor: pointer;
 }
 
-.close:hover, .close:focus {
-  color: #ccc;
+.close:hover {
+  color: #fff;
 }
 
-/* Modal Body */
-.modal-body {
-  margin-top: 1rem;
-}
-
-/* Preprocessing setting group styles */
-.setting {
-  margin: 0.5rem 0;
+/* Preprocessing controls */
+.preprocess-control,
+.ocr-setting,
+.camera-setting {
+  margin-bottom: 1rem;
   display: flex;
   align-items: center;
+  justify-content: space-between;
 }
 
-.setting label {
-  flex: 1;
+.preprocess-control label,
+.ocr-setting label,
+.camera-setting label {
+  margin-right: 1rem;
 }
 
-.setting input[type="checkbox"] {
+.preprocess-control input[type="checkbox"] {
   margin-right: 0.5rem;
 }
 
-.setting input[type="range"] {
-  margin-left: 0.5rem;
+/* Range sliders */
+input[type="range"] {
   flex: 1;
-  max-width: 200px;
+  margin-left: 0.5rem;
 }
 
-/* Textarea for extracted text */
-#extractedTextArea {
-  width: 100%;
-  background: #111;
-  color: #ccc;
-  border: 1px solid #666;
-  resize: none;
+#confidence-value {
+  margin-left: 0.5rem;
+}
+
+/* Extracted Text Modal */
+#text-modal pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background-color: #2f2f2f;
+  padding: 1rem;
+  border-radius: 6px;
+  max-height: 300px;
+  overflow-y: auto;
 }
