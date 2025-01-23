@@ -5,86 +5,83 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OCR Scanner Pro</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/modern-normalize/2.0.0/modern-normalize.min.css">
     <style>
         /* styles.css */
         :root {
             --bg-dark: #1a1a1a;
-            --primary: #2ecc71;
-            --secondary: #e74c3c;
-            --text-light: #ecf0f1;
-            --border-radius: 8px;
+            --surface: #2d2d2d;
+            --primary: #00ff88;
+            --error: #ff4444;
+            --text-primary: #ffffff;
+            --text-secondary: #cccccc;
         }
 
         * {
             box-sizing: border-box;
-            margin: 0;
-            padding: 0;
         }
 
         body {
+            margin: 0;
             background-color: var(--bg-dark);
-            color: var(--text-light);
-            font-family: 'Segoe UI', sans-serif;
+            color: var(--text-primary);
+            font-family: 'Segoe UI', system-ui, sans-serif;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
+        .toolbar {
+            padding: 1rem;
+            background: var(--surface);
+            display: flex;
+            gap: 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        button {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-primary);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: rgba(255,255,255,0.2);
         }
 
         .video-container {
+            flex: 1;
             position: relative;
-            width: 100%;
-            max-width: 800px;
-            margin: 20px auto;
-            background: #000;
-            border-radius: var(--border-radius);
-            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        #videoElement {
-            width: 100%;
-            height: auto;
+        #video {
+            max-width: 100%;
+            max-height: 80vh;
+            background: black;
         }
 
         .roi-box {
             position: absolute;
             width: 300px;
             height: 150px;
-            border: 3px solid var(--secondary);
-            border-radius: var(--border-radius);
-            top: calc(50% - 75px);
-            left: calc(50% - 150px);
-            transition: border-color 0.3s ease;
+            border: 2px solid var(--error);
+            border-radius: 8px;
+            transition: border-color 0.3s;
         }
 
         .roi-box.active {
             border-color: var(--primary);
-        }
-
-        .controls {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 20px;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: var(--border-radius);
-            background: #34495e;
-            color: var(--text-light);
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .btn:hover {
-            background: #2c3e50;
-            transform: translateY(-2px);
         }
 
         .modal {
@@ -92,328 +89,311 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
             z-index: 1000;
         }
 
         .modal-content {
-            position: relative;
-            background: var(--bg-dark);
-            margin: 5% auto;
-            padding: 20px;
-            width: 90%;
-            max-width: 500px;
-            border-radius: var(--border-radius);
+            background: var(--surface);
+            padding: 2rem;
+            border-radius: 8px;
+            min-width: 400px;
+            max-width: 90%;
         }
 
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 1.5rem;
         }
 
-        .close-btn {
-            cursor: pointer;
-            font-size: 24px;
+        .modal-title {
+            margin: 0;
+            font-size: 1.25rem;
         }
 
         .settings-group {
-            margin-bottom: 15px;
+            margin-bottom: 1.5rem;
         }
 
-        .slider-container {
-            margin: 10px 0;
-        }
-
-        label {
+        .settings-group label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+        }
+
+        .settings-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
         }
 
         input[type="range"] {
-            width: 100%;
+            width: 200px;
+            accent-color: var(--primary);
         }
 
-        #cameraSettings select {
-            width: 100%;
-            padding: 8px;
-            margin: 5px 0;
-            background: #34495e;
-            border: none;
-            color: var(--text-light);
-            border-radius: var(--border-radius);
+        #textOutput {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            background: var(--surface);
+            padding: 1rem;
+            border-radius: 4px;
+            max-width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="video-container">
-            <video id="videoElement" autoplay playsinline></video>
-            <div class="roi-box" id="roiBox"></div>
-        </div>
+    <div class="toolbar">
+        <button id="btnPreprocess">
+            <span class="material-icons">tune</span>
+            Preprocessing
+        </button>
+        <button id="btnOCRSettings">
+            <span class="material-icons">settings</span>
+            OCR Settings
+        </button>
+        <button id="btnCameraSettings">
+            <span class="material-icons">photo_camera</span>
+            Camera
+        </button>
+    </div>
 
-        <div class="controls">
-            <button class="btn" id="preprocessBtn">
-                <i class="fas fa-sliders-h"></i> Preprocessing
-            </button>
-            <button class="btn" id="ocrSettingsBtn">
-                <i class="fas fa-cog"></i> OCR Settings
-            </button>
-            <button class="btn" id="cameraSettingsBtn">
-                <i class="fas fa-camera"></i> Camera
-            </button>
-            <button class="btn" id="extractTextBtn">
-                <i class="fas fa-text"></i> Extract Text
-            </button>
-        </div>
+    <div class="video-container">
+        <video id="video" autoplay playsinline></video>
+        <div class="roi-box" id="roiBox"></div>
+    </div>
 
-        <!-- Preprocessing Modal -->
-        <div id="preprocessModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Preprocessing Settings</h3>
-                    <span class="close-btn" onclick="closeModal('preprocessModal')">&times;</span>
-                </div>
-                <div id="preprocessControls"></div>
+    <div id="preprocessModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Preprocessing Settings</h3>
+                <button onclick="closeModal('preprocessModal')">&times;</button>
             </div>
-        </div>
-
-        <!-- OCR Settings Modal -->
-        <div id="ocrModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>OCR Configuration</h3>
-                    <span class="close-btn" onclick="closeModal('ocrModal')">&times;</span>
-                </div>
-                <div class="settings-group">
-                    <label>Web Workers (1-4):</label>
-                    <input type="number" id="workerCount" min="1" max="4" value="2">
-                </div>
-                <div class="settings-group">
-                    <label>Confidence Threshold:</label>
-                    <input type="range" id="confidenceThreshold" min="0" max="100" value="70">
-                </div>
-            </div>
-        </div>
-
-        <!-- Camera Settings Modal -->
-        <div id="cameraModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Camera Settings</h3>
-                    <span class="close-btn" onclick="closeModal('cameraModal')">&times;</span>
-                </div>
-                <div id="cameraSettings"></div>
+            <div class="settings-group">
+                <!-- Preprocessing controls will be dynamically added -->
             </div>
         </div>
     </div>
 
-    <!-- Include required libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-    <script async src="https://docs.opencv.org/master/opencv.js" onload="onOpenCvReady();"></script>
+    <div id="ocrModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">OCR Settings</h3>
+                <button onclick="closeModal('ocrModal')">&times;</button>
+            </div>
+            <div class="settings-group">
+                <label>Number of Workers</label>
+                <input type="number" id="workerCount" min="1" max="4" value="2">
+                
+                <label>Confidence Threshold</label>
+                <input type="range" id="confidenceThreshold" min="0" max="100" value="70">
+            </div>
+        </div>
+    </div>
 
+    <div id="cameraModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Camera Settings</h3>
+                <button onclick="closeModal('cameraModal')">&times;</button>
+            </div>
+            <div class="settings-group">
+                <label>Camera</label>
+                <select id="cameraSelect"></select>
+                
+                <label>Resolution</label>
+                <select id="resolutionSelect"></select>
+            </div>
+        </div>
+    </div>
+
+    <div id="textOutput"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <script src="https://docs.opencv.org/master/opencv.js"></script>
     <script>
         // app.js
         let videoStream = null;
-        let currentCameraSettings = {
-            deviceId: '',
-            resolution: { width: 1280, height: 720 }
-        };
+        let currentCameraId = null;
+        let currentResolution = null;
+        let ocrWorker = null;
+        let processing = false;
         
-        const processingSettings = {
+        const preprocessingSettings = {
             grayscale: false,
-            threshold: { enabled: false, value: 128 },
-            brightness: { enabled: false, value: 0 },
-            contrast: { enabled: false, value: 1 },
+            contrast: 100,
+            brightness: 100,
+            threshold: 0,
             edgeDetection: false
         };
 
-        let tesseractWorker = null;
-        let ocrConfig = {
-            workerCount: 2,
-            confidenceThreshold: 70
-        };
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkCameraPermission();
+            setupEventListeners();
+            initializeOCR();
+        });
 
-        async function initializeCamera() {
+        async function checkCameraPermission() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        deviceId: currentCameraSettings.deviceId,
-                        width: { ideal: currentCameraSettings.resolution.width },
-                        height: { ideal: currentCameraSettings.resolution.height }
-                    }
-                });
-                
-                videoStream = stream;
-                const video = document.getElementById('videoElement');
-                video.srcObject = stream;
-                
-                await new Promise((resolve) => {
-                    video.onloadedmetadata = () => {
-                        video.play();
-                        resolve();
-                    };
-                });
-                
-                startProcessing();
-                initializeCameraSettings();
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(d => d.kind === 'videoinput');
+                if (videoDevices.length > 0 && localStorage.getItem('cameraAllowed')) {
+                    location.reload();
+                } else {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    stream.getTracks().forEach(track => track.stop());
+                    localStorage.setItem('cameraAllowed', 'true');
+                    location.reload();
+                }
             } catch (error) {
-                console.error('Camera initialization failed:', error);
+                alert('Camera access is required for this application');
             }
         }
 
-        function startProcessing() {
-            const video = document.getElementById('videoElement');
+        function setupEventListeners() {
+            document.getElementById('btnPreprocess').addEventListener('click', () => openModal('preprocessModal'));
+            document.getElementById('btnOCRSettings').addEventListener('click', () => openModal('ocrModal'));
+            document.getElementById('btnCameraSettings').addEventListener('click', () => {
+                openModal('cameraModal');
+                populateCameraOptions();
+            });
+            
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', e => {
+                    if (e.target === modal) closeModal(modal.id);
+                });
+            });
+        }
+
+        async function initializeCamera(deviceId, resolution) {
+            if (videoStream) videoStream.getTracks().forEach(track => track.stop());
+            
+            const constraints = {
+                video: {
+                    deviceId: deviceId ? { exact: deviceId } : undefined,
+                    width: { ideal: resolution ? parseInt(resolution.split('x')[0]) : 1280 },
+                    height: { ideal: resolution ? parseInt(resolution.split('x')[1]) : 720 }
+                }
+            };
+
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                const video = document.getElementById('video');
+                video.srcObject = videoStream;
+                await video.play();
+                startProcessingLoop();
+            } catch (error) {
+                console.error('Error initializing camera:', error);
+            }
+        }
+
+        async function populateCameraOptions() {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(d => d.kind === 'videoinput');
+            const cameraSelect = document.getElementById('cameraSelect');
+            
+            cameraSelect.innerHTML = videoDevices
+                .map(device => `<option value="${device.deviceId}">${device.label || 'Camera'}</option>`)
+                .join('');
+
+            cameraSelect.addEventListener('change', async () => {
+                currentCameraId = cameraSelect.value;
+                await initializeCamera(currentCameraId, currentResolution);
+            });
+
+            const resolutionSelect = document.getElementById('resolutionSelect');
+            resolutionSelect.innerHTML = `
+                <option value="640x480">640x480</option>
+                <option value="1280x720">1280x720</option>
+                <option value="1920x1080">1920x1080</option>
+            `;
+
+            resolutionSelect.addEventListener('change', async () => {
+                currentResolution = resolutionSelect.value;
+                await initializeCamera(currentCameraId, currentResolution);
+            });
+        }
+
+        async function initializeOCR() {
+            ocrWorker = await Tesseract.createWorker({
+                logger: m => console.log(m),
+                workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/worker.min.js',
+                langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+                corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4/tesseract-core.wasm.js',
+            });
+        }
+
+        async function processFrame() {
+            if (processing) return;
+            processing = true;
+
+            const video = document.getElementById('video');
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
-            function processFrame() {
-                if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
-                
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0);
-                
-                const roi = getROIData(canvas);
-                const processedROI = preprocessImage(roi);
-                runOCR(processedROI);
-                
-                requestAnimationFrame(processFrame);
-            }
+            canvas.width = 300;
+            canvas.height = 150;
             
-            video.addEventListener('play', processFrame);
-        }
+            const roiRect = document.getElementById('roiBox').getBoundingClientRect();
+            ctx.drawImage(
+                video,
+                roiRect.left, roiRect.top, roiRect.width, roiRect.height,
+                0, 0, canvas.width, canvas.height
+            );
 
-        function getROIData(canvas) {
-            const ctx = canvas.getContext('2d');
-            const roiX = (canvas.width - 300) / 2;
-            const roiY = (canvas.height - 150) / 2;
-            return ctx.getImageData(roiX, roiY, 300, 150);
-        }
-
-        function preprocessImage(imageData) {
+            let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             let src = cv.matFromImageData(imageData);
-            let dst = new cv.Mat();
             
-            if (processingSettings.grayscale) {
+            // Apply preprocessing
+            if (preprocessingSettings.grayscale) {
                 cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY);
             }
             
-            if (processingSettings.brightness.enabled) {
-                src.convertTo(dst, -1, 1, processingSettings.brightness.value);
-                src = dst;
+            // Convert back to RGBA for display
+            cv.cvtColor(src, src, cv.COLOR_GRAY2RGBA);
+            cv.imshow(canvas, src);
+            
+            try {
+                const { data: { text, confidence } } = await ocrWorker.recognize(canvas);
+                document.getElementById('roiBox').classList.toggle('active', confidence >= 70);
+                document.getElementById('textOutput').textContent = text;
+            } catch (error) {
+                console.error('OCR Error:', error);
             }
-            
-            if (processingSettings.contrast.enabled) {
-                src.convertTo(dst, -1, processingSettings.contrast.value);
-                src = dst;
-            }
-            
-            if (processingSettings.threshold.enabled) {
-                cv.threshold(src, dst, processingSettings.threshold.value, 255, cv.THRESH_BINARY);
-                src = dst;
-            }
-            
-            if (processingSettings.edgeDetection) {
-                cv.Canny(src, dst, 50, 150);
-                src = dst;
-            }
-            
-            const processedImage = new ImageData(
-                new Uint8ClampedArray(src.data),
-                src.cols,
-                src.rows
-            );
-            
+
             src.delete();
-            dst.delete();
-            return processedImage;
+            processing = false;
         }
 
-        async function runOCR(imageData) {
-            if (!tesseractWorker) {
-                tesseractWorker = await Tesseract.createWorker();
+        function startProcessingLoop() {
+            function loop() {
+                if (document.getElementById('video').readyState === HTMLMediaElement.HAVE_ENOUGH_DATA) {
+                    processFrame();
+                }
+                requestAnimationFrame(loop);
             }
-            
-            const { data: { text, confidence } } = await tesseractWorker.recognize(imageData);
-            const roiBox = document.getElementById('roiBox');
-            
-            if (confidence >= ocrConfig.confidenceThreshold) {
-                roiBox.classList.add('active');
-                // Handle extracted text
-            } else {
-                roiBox.classList.remove('active');
-            }
+            requestAnimationFrame(loop);
         }
 
-        // Modal and UI functions
-        function showModal(id) {
-            document.getElementById(id).style.display = 'block';
+        function openModal(id) {
+            document.getElementById(id).style.display = 'flex';
         }
 
         function closeModal(id) {
             document.getElementById(id).style.display = 'none';
         }
 
-        async function initializeCameraSettings() {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoDevices = devices.filter(d => d.kind === 'videoinput');
-            
-            const settingsDiv = document.getElementById('cameraSettings');
-            settingsDiv.innerHTML = `
-                <label>Camera:</label>
-                <select id="cameraSelect">
-                    ${videoDevices.map(d => `<option value="${d.deviceId}">${d.label}</option>`)}
-                </select>
-                
-                <label>Resolution:</label>
-                <select id="resolutionSelect">
-                    <option value="1280x720">1280x720</option>
-                    <option value="1920x1080">1920x1080</option>
-                    <option value="640x480">640x480</option>
-                </select>
-            `;
-            
-            document.getElementById('cameraSelect').value = currentCameraSettings.deviceId;
-            document.getElementById('resolutionSelect').value = 
-                `${currentCameraSettings.resolution.width}x${currentCameraSettings.resolution.height}`;
-        }
-
-        // Event Listeners
-        window.onload = async () => {
-            if (!navigator.mediaDevices?.getUserMedia) {
-                alert('Camera access is not supported in this browser');
-                return;
-            }
-            
-            const hasPermission = await navigator.permissions.query({ name: 'camera' });
-            if (hasPermission.state === 'granted') {
-                initializeCamera();
-            } else {
-                try {
-                    await navigator.mediaDevices.getUserMedia({ video: true });
-                    window.location.reload();
-                } catch (error) {
-                    alert('Camera access is required to use this application');
-                }
-            }
-        };
-
-        document.getElementById('preprocessBtn').addEventListener('click', () => showModal('preprocessModal'));
-        document.getElementById('ocrSettingsBtn').addEventListener('click', () => showModal('ocrModal'));
-        document.getElementById('cameraSettingsBtn').addEventListener('click', () => showModal('cameraModal'));
-        document.getElementById('extractTextBtn').addEventListener('click', () => {
-            // Handle text extraction
-        });
-
-        window.onclick = function(event) {
-            if (event.target.className === 'modal') {
-                event.target.style.display = 'none';
-            }
-        };
+        // Initialize default camera
+        initializeCamera();
     </script>
 </body>
 </html>
