@@ -1,280 +1,110 @@
-/********************************************
- * Global Variables
- ********************************************/
+/****************************************************
+ * Global Variables & State
+ ****************************************************/
 let videoStream = null;
-let currentDeviceId = null;
-let currentResolution = { width: 1280, height: 720 };
+let localCameraAccessRequested = false;
+let selectedDeviceId = null;
+let selectedResolution = { width: 640, height: 480 };
 
-let localVideo = null;
-let roiBox = null;
+let workerCount = 1;
+let confidenceThreshold = 60; // default
 
-let preprocessingOptions = {
-  grayscale: false,
-  highlight: false,
-  highlightStrength: 50,
-  contrast: false,
-  contrastValue: 0,
-  brightness: false,
-  brightnessValue: 0,
-  threshold: false,
-  thresholdValue: 128,
-  edge: false,
-  edgeValue: 1
-};
+// Preprocessing Toggles
+let enableGrayscale = false;
+let enableHighlight = false;
+let highlightValue = 50;
+let enableContrast = false;
+let contrastValue = 50;
+let enableBrightness = false;
+let brightnessValue = 50;
+let enableThreshold = false;
+let thresholdValue = 128;
+let enableEdgeDetection = false;
+let edgeValue = 50;
 
-let ocrConfig = {
-  workerCount: 1,
-  confidenceThreshold: 60 // in percentage
-};
+// DOM Elements
+const video = document.getElementById('video');
+const overlayCanvas = document.getElementById('overlayCanvas');
+const roiBox = document.getElementById('roi-box');
 
-// To store the Tesseract worker instance:
-let tesseractWorker = null;
+const preprocessingModal = document.getElementById('preprocessingModal');
+const closePreprocessingModal = document.getElementById('closePreprocessingModal');
+const ocrModal = document.getElementById('ocrModal');
+const closeOcrModal = document.getElementById('closeOcrModal');
+const cameraModal = document.getElementById('cameraModal');
+const closeCameraModal = document.getElementById('closeCameraModal');
+const textModal = document.getElementById('textModal');
+const closeTextModal = document.getElementById('closeTextModal');
 
-// Canvas for processing
-let offscreenCanvas = null;
-let offscreenCtx = null;
+const preprocessingBtn = document.getElementById('preprocessSettingsBtn');
+const ocrSettingsBtn = document.getElementById('ocrSettingsBtn');
+const cameraSettingsBtn = document.getElementById('cameraSettingsBtn');
+const extractedTextBtn = document.getElementById('extractedTextBtn');
+
+const cameraSelect = document.getElementById('cameraSelect');
+const resolutionSelect = document.getElementById('resolutionSelect');
+const applyCameraSettingsBtn = document.getElementById('applyCameraSettingsBtn');
+
+const enableGrayscaleChk = document.getElementById('enableGrayscale');
+const enableHighlightChk = document.getElementById('enableHighlight');
+const highlightRange = document.getElementById('highlightValue');
+const enableContrastChk = document.getElementById('enableContrast');
+const contrastRange = document.getElementById('contrastValue');
+const enableBrightnessChk = document.getElementById('enableBrightness');
+const brightnessRange = document.getElementById('brightnessValue');
+const enableThresholdChk = document.getElementById('enableThreshold');
+const thresholdRange = document.getElementById('thresholdValue');
+const enableEdgeDetectionChk = document.getElementById('enableEdgeDetection');
+const edgeRange = document.getElementById('edgeValue');
+
+const workerCountInput = document.getElementById('workerCount');
+const confidenceThresholdInput = document.getElementById('confidenceThreshold');
+const confidenceLabel = document.getElementById('confidenceLabel');
+const applyOcrSettingsBtn = document.getElementById('applyOcrSettingsBtn');
+
+const extractedTextOutput = document.getElementById('extractedTextOutput');
 
 
-/********************************************
- * On Window Load
- ********************************************/
+/****************************************************
+ * Camera Permission & Initialization
+ ****************************************************/
+
 window.addEventListener('load', async () => {
-  // Check camera permission
-  if (!localStorage.getItem('cameraPermissionGranted')) {
+  // Check if we have already requested camera access
+  const cameraAccessGranted = localStorage.getItem('cameraAccessGranted');
+  if (!cameraAccessGranted) {
     try {
-      // Prompt user for camera permission
-      await navigator.mediaDevices.getUserMedia({ video: true });
-      
-      // If successful, store permission and reload
-      localStorage.setItem('cameraPermissionGranted', 'true');
-      alert('Camera permission granted. The page will now refresh.');
+      await requestCameraAccess();
+      // If successful, store and reload
+      localStorage.setItem('cameraAccessGranted', 'true');
+      alert('Camera access granted. The page will now refresh to apply changes.');
       location.reload();
-    } catch (err) {
-      alert('Camera permission is required to use this application.');
-      return;
+    } catch (error) {
+      alert('Camera access is required. Please allow and refresh.');
     }
+  } else {
+    // We have permission, proceed with actual initialization
+    initCameraList();
   }
-
-  // Initialize references
-  localVideo = document.getElementById('video');
-  roiBox = document.getElementById('roi-box');
-
-  // Initialize camera with default settings
-  await initCamera();
-
-  // Prepare Tesseract Worker
-  await initTesseractWorker();
-
-  // Enumerate devices for camera settings modal
-  await populateCameraDevices();
-
-  // Attach UI events
-  attachEventListeners();
-
-  // Start the OCR loop
-  startProcessingLoop();
 });
 
-
-/********************************************
- * Camera Initialization
- ********************************************/
-async function initCamera() {
-  // Close any existing stream
-  if (videoStream) {
-    videoStream.getTracks().forEach(track => track.stop());
-  }
-
-  const constraints = {
-    audio: false,
-    video: {
-      deviceId: currentDeviceId ? { exact: currentDeviceId } : undefined,
-      width: { ideal: currentResolution.width },
-      height: { ideal: currentResolution.height },
-      facingMode: 'environment'
-    }
-  };
-
-  try {
-    videoStream = await navigator.mediaDevices.getUserMedia(constraints);
-    localVideo.srcObject = videoStream;
-    await localVideo.play();
-  } catch (err) {
-    console.error('Error initializing camera:', err);
-    alert('Could not access the camera. Please check permissions and try again.');
-  }
-
-  // Create offscreen canvas matching the ROI size
-  if (!offscreenCanvas) {
-    offscreenCanvas = document.createElement('canvas');
-  }
-  const roiRect = roiBox.getBoundingClientRect();
-  offscreenCanvas.width = roiRect.width;
-  offscreenCanvas.height = roiRect.height;
-  offscreenCtx = offscreenCanvas.getContext('2d');
+/**
+ * Requests camera access once without showing full interface.
+ */
+async function requestCameraAccess() {
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  // Immediately stop the stream, we only want to check permission
+  stream.getTracks().forEach(track => track.stop());
 }
 
-
-/********************************************
- * Tesseract Initialization
- ********************************************/
-// --- initTesseractWorker (fixed code) ---
-async function initTesseractWorker() {
-  if (tesseractWorker) {
-    await tesseractWorker.terminate();
-  }
-
-  tesseractWorker = Tesseract.createWorker({
-    // Use an explicit, known working version (e.g., 4.0.2 or newer)
-    workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/worker.min.js',
-    // Point to the correct tesseract-core.wasm.js in the tesseract.js-core package
-    corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@2.3.0/tesseract-core.wasm.js',
-    // Make sure this matches the same Tesseract version
-    langPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/lang',
-    logger: m => {
-      // console.log(m);
-    }
-  });
-
-  // Now these calls will work as intended:
-  await tesseractWorker.load();
-  await tesseractWorker.loadLanguage('eng');
-  await tesseractWorker.initialize('eng');
-}
-
-
-
-/********************************************
- * Main Processing Loop
- ********************************************/
-function startProcessingLoop() {
-  const processFrame = async () => {
-    if (!localVideo || localVideo.readyState !== 4) {
-      requestAnimationFrame(processFrame);
-      return;
-    }
-
-    // We capture the portion of the video that corresponds to the ROI
-    // 1) Calculate ROI in video space
-    const videoRect = localVideo.getBoundingClientRect();
-    const roiRect = roiBox.getBoundingClientRect();
-
-    const cropX = roiRect.x - videoRect.x;
-    const cropY = roiRect.y - videoRect.y;
-    const cropWidth = roiRect.width;
-    const cropHeight = roiRect.height;
-
-    // 2) Draw onto offscreen canvas
-    offscreenCtx.drawImage(localVideo,
-      cropX, cropY, cropWidth, cropHeight,
-      0, 0, offscreenCanvas.width, offscreenCanvas.height
-    );
-
-    // 3) Apply OpenCV preprocessing
-    let src = cv.matFromImageData(offscreenCtx.getImageData(0, 0, cropWidth, cropHeight));
-    let dst = new cv.Mat();
-
-    // Grayscale
-    if (preprocessingOptions.grayscale) {
-      cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
-      src.delete();
-      src = dst.clone();
-    }
-
-    // Highlights (Simple approach: increase brightness) 
-    if (preprocessingOptions.highlight) {
-      const alpha = 1.0; // No contrast change
-      const beta = parseInt(preprocessingOptions.highlightStrength, 10);
-      dst = new cv.Mat();
-      src.convertTo(dst, -1, alpha, beta);
-      src.delete();
-      src = dst.clone();
-    }
-
-    // Contrast
-    if (preprocessingOptions.contrast) {
-      const alpha = 1 + parseInt(preprocessingOptions.contrastValue, 10) / 100; 
-      dst = new cv.Mat();
-      src.convertTo(dst, -1, alpha, 0);
-      src.delete();
-      src = dst.clone();
-    }
-
-    // Brightness
-    if (preprocessingOptions.brightness) {
-      const beta = parseInt(preprocessingOptions.brightnessValue, 10);
-      const alpha = 1.0;
-      dst = new cv.Mat();
-      src.convertTo(dst, -1, alpha, beta);
-      src.delete();
-      src = dst.clone();
-    }
-
-    // Threshold
-    if (preprocessingOptions.threshold) {
-      dst = new cv.Mat();
-      cv.threshold(src, dst, preprocessingOptions.thresholdValue, 255, cv.THRESH_BINARY);
-      src.delete();
-      src = dst.clone();
-    }
-
-    // Edge detection (Canny)
-    if (preprocessingOptions.edge) {
-      dst = new cv.Mat();
-      cv.Canny(src, dst, preprocessingOptions.edgeValue * 10, preprocessingOptions.edgeValue * 20);
-      src.delete();
-      src = dst.clone();
-    }
-
-    // Put result back to offscreen canvas for Tesseract
-    const processedData = new ImageData(
-      new Uint8ClampedArray(src.data),
-      src.cols,
-      src.rows
-    );
-    offscreenCtx.putImageData(processedData, 0, 0);
-
-    // 4) Tesseract OCR
-    try {
-      const { data } = await tesseractWorker.recognize(offscreenCanvas);
-      let textFound = false;
-      if (data && data.words) {
-        for (const w of data.words) {
-          if (w.confidence >= ocrConfig.confidenceThreshold) {
-            textFound = true;
-            break;
-          }
-        }
-      }
-      // Update ROI box border
-      roiBox.style.borderColor = textFound ? 'green' : 'red';
-    } catch (err) {
-      console.error('Tesseract error:', err);
-    }
-
-    // Cleanup
-    src.delete();
-    dst.delete();
-
-    // Next frame
-    requestAnimationFrame(processFrame);
-  };
-
-  requestAnimationFrame(processFrame);
-}
-
-
-/********************************************
- * Populate Camera Devices
- ********************************************/
-async function populateCameraDevices() {
-  const cameraSelect = document.getElementById('camera-select');
-  cameraSelect.innerHTML = ''; // Clear existing options
-
+/**
+ * Initialize camera select list and default stream
+ */
+async function initCameraList() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
     const videoDevices = devices.filter(d => d.kind === 'videoinput');
-    
+    cameraSelect.innerHTML = ''; // clear previous
     videoDevices.forEach(device => {
       const option = document.createElement('option');
       option.value = device.deviceId;
@@ -282,135 +112,289 @@ async function populateCameraDevices() {
       cameraSelect.appendChild(option);
     });
 
-    // If currentDeviceId is not set, use first device
-    if (!currentDeviceId && videoDevices.length > 0) {
-      currentDeviceId = videoDevices[0].deviceId;
-      cameraSelect.value = currentDeviceId;
-    } else {
-      cameraSelect.value = currentDeviceId;
+    // Select the first device by default if not already selected
+    if (!selectedDeviceId && videoDevices.length > 0) {
+      selectedDeviceId = videoDevices[0].deviceId;
     }
+
+    cameraSelect.value = selectedDeviceId;
+    startVideoStream();
+  } catch (error) {
+    console.error('Error initializing camera list:', error);
+  }
+}
+
+/**
+ * Starts video stream based on selectedDeviceId and selectedResolution
+ */
+async function startVideoStream() {
+  if (videoStream) {
+    videoStream.getTracks().forEach(track => track.stop());
+  }
+  const [width, height] = selectedResolution.width
+    ? [selectedResolution.width, selectedResolution.height]
+    : resolutionSelect.value.split('x').map(Number);
+
+  try {
+    videoStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        deviceId: { exact: selectedDeviceId },
+        width: { ideal: width },
+        height: { ideal: height }
+      }
+    });
+    video.srcObject = videoStream;
+
+    video.onloadedmetadata = () => {
+      // Set canvas size
+      overlayCanvas.width = video.videoWidth;
+      overlayCanvas.height = video.videoHeight;
+      startProcessingLoop();
+    };
   } catch (err) {
-    console.error('Error enumerating devices:', err);
+    console.error('Error starting video stream:', err);
   }
 }
 
 
-/********************************************
- * Attach Event Listeners for UI
- ********************************************/
-function attachEventListeners() {
-  // Modal toggles
-  document.getElementById('preprocess-btn').addEventListener('click', () => {
-    openModal('preprocess-modal');
-  });
-  document.getElementById('ocr-config-btn').addEventListener('click', () => {
-    openModal('ocr-config-modal');
-  });
-  document.getElementById('camera-settings-btn').addEventListener('click', () => {
-    openModal('camera-settings-modal');
-  });
-  document.getElementById('extract-text-btn').addEventListener('click', () => {
-    openModal('text-modal');
-  });
+/****************************************************
+ * Event Listeners: Buttons & Modal Toggles
+ ****************************************************/
 
-  // Close modals
-  document.querySelectorAll('.close').forEach(closeBtn => {
-    closeBtn.addEventListener('click', () => {
-      const targetModal = closeBtn.getAttribute('data-close');
-      closeModal(targetModal);
-    });
-  });
+// Preprocessing Modal
+preprocessingBtn.addEventListener('click', () => {
+  preprocessingModal.style.display = 'block';
+});
+closePreprocessingModal.addEventListener('click', () => {
+  preprocessingModal.style.display = 'none';
+});
 
-  window.addEventListener('click', (e) => {
-    if (e.target.classList.contains('modal')) {
-      e.target.style.display = 'none';
+// OCR Modal
+ocrSettingsBtn.addEventListener('click', () => {
+  ocrModal.style.display = 'block';
+});
+closeOcrModal.addEventListener('click', () => {
+  ocrModal.style.display = 'none';
+});
+
+// Camera Modal
+cameraSettingsBtn.addEventListener('click', () => {
+  cameraModal.style.display = 'block';
+});
+closeCameraModal.addEventListener('click', () => {
+  cameraModal.style.display = 'none';
+});
+
+// Text Modal
+extractedTextBtn.addEventListener('click', () => {
+  textModal.style.display = 'block';
+});
+closeTextModal.addEventListener('click', () => {
+  textModal.style.display = 'none';
+});
+
+// Close modals if user clicks outside
+window.addEventListener('click', (event) => {
+  if (event.target === preprocessingModal) {
+    preprocessingModal.style.display = 'none';
+  }
+  if (event.target === ocrModal) {
+    ocrModal.style.display = 'none';
+  }
+  if (event.target === cameraModal) {
+    cameraModal.style.display = 'none';
+  }
+  if (event.target === textModal) {
+    textModal.style.display = 'none';
+  }
+});
+
+/****************************************************
+ * Preprocessing Settings Updates
+ ****************************************************/
+enableGrayscaleChk.addEventListener('change', (e) => {
+  enableGrayscale = e.target.checked;
+});
+enableHighlightChk.addEventListener('change', (e) => {
+  enableHighlight = e.target.checked;
+});
+highlightRange.addEventListener('input', (e) => {
+  highlightValue = parseInt(e.target.value, 10);
+});
+enableContrastChk.addEventListener('change', (e) => {
+  enableContrast = e.target.checked;
+});
+contrastRange.addEventListener('input', (e) => {
+  contrastValue = parseInt(e.target.value, 10);
+});
+enableBrightnessChk.addEventListener('change', (e) => {
+  enableBrightness = e.target.checked;
+});
+brightnessRange.addEventListener('input', (e) => {
+  brightnessValue = parseInt(e.target.value, 10);
+});
+enableThresholdChk.addEventListener('change', (e) => {
+  enableThreshold = e.target.checked;
+});
+thresholdRange.addEventListener('input', (e) => {
+  thresholdValue = parseInt(e.target.value, 10);
+});
+enableEdgeDetectionChk.addEventListener('change', (e) => {
+  enableEdgeDetection = e.target.checked;
+});
+edgeRange.addEventListener('input', (e) => {
+  edgeValue = parseInt(e.target.value, 10);
+});
+
+/****************************************************
+ * OCR Settings
+ ****************************************************/
+confidenceThresholdInput.addEventListener('input', (e) => {
+  confidenceThreshold = parseInt(e.target.value, 10);
+  confidenceLabel.textContent = confidenceThreshold;
+});
+workerCountInput.addEventListener('change', (e) => {
+  workerCount = parseInt(e.target.value, 10);
+});
+applyOcrSettingsBtn.addEventListener('click', () => {
+  ocrModal.style.display = 'none';
+});
+
+/****************************************************
+ * Camera Settings
+ ****************************************************/
+applyCameraSettingsBtn.addEventListener('click', () => {
+  selectedDeviceId = cameraSelect.value;
+  const resString = resolutionSelect.value;
+  const [w, h] = resString.split('x');
+  selectedResolution = { width: parseInt(w, 10), height: parseInt(h, 10) };
+  cameraModal.style.display = 'none';
+  startVideoStream();
+});
+
+/****************************************************
+ * Main Processing Loop
+ * - Preprocess ROI
+ * - Perform OCR on ROI
+ * - Update bounding box color
+ ****************************************************/
+
+async function startProcessingLoop() {
+  const ctx = overlayCanvas.getContext('2d');
+  const roiBoxRect = roiBox.getBoundingClientRect();
+  const videoRect = video.getBoundingClientRect();
+
+  // To continually process frames in real-time
+  async function processFrame() {
+    if (!video.paused && !video.ended) {
+      // Calculate ROI position relative to video
+      // ROI is visually in the center; we need normalized offsets
+      const scaleX = video.videoWidth / videoRect.width;
+      const scaleY = video.videoHeight / videoRect.height;
+
+      const roiWidth = roiBoxRect.width * scaleX;
+      const roiHeight = roiBoxRect.height * scaleY;
+
+      // ROI top-left relative to the video frame
+      const roiLeft = (roiBoxRect.left - videoRect.left) * scaleX;
+      const roiTop = (roiBoxRect.top - videoRect.top) * scaleY;
+
+      // Draw the current ROI frame onto the overlay canvas
+      ctx.drawImage(
+        video,
+        roiLeft, roiTop, roiWidth, roiHeight, // source
+        roiLeft, roiTop, roiWidth, roiHeight  // destination
+      );
+
+      // Preprocess (OpenCV.js)
+      let src = cv.imread(overlayCanvas);
+      // We only want the ROI portion
+      let roi = src.roi(new cv.Rect(roiLeft, roiTop, roiWidth, roiHeight));
+
+      // Apply preprocessing
+      if (enableGrayscale) {
+        cv.cvtColor(roi, roi, cv.COLOR_RGBA2GRAY, 0);
+      }
+      if (enableHighlight) {
+        // Simple gamma correction as "highlight"
+        let alpha = highlightValue / 50; // arbitrary scale
+        roi.convertTo(roi, -1, alpha, 0);
+      }
+      if (enableContrast) {
+        let alpha = contrastValue / 50; // scale
+        roi.convertTo(roi, -1, alpha, 0);
+      }
+      if (enableBrightness) {
+        let beta = (brightnessValue - 50) * 2; // shift
+        roi.convertTo(roi, -1, 1, beta);
+      }
+      if (enableThreshold) {
+        cv.threshold(roi, roi, thresholdValue, 255, cv.THRESH_BINARY);
+      }
+      if (enableEdgeDetection) {
+        cv.Canny(roi, roi, edgeValue, edgeValue * 2, 3, false);
+      }
+
+      // Place processed ROI back on overlayCanvas
+      cv.imshow(overlayCanvas, src);
+
+      // Prepare a small canvas for Tesseract
+      let tCanvas = document.createElement('canvas');
+      tCanvas.width = roiWidth;
+      tCanvas.height = roiHeight;
+      cv.imshow(tCanvas, roi);
+
+      roi.delete();
+      src.delete();
+
+      // Convert the ROI canvas to a blob for Tesseract
+      tCanvas.toBlob(async (blob) => {
+        if (!blob) {
+          requestAnimationFrame(processFrame);
+          return;
+        }
+
+        // Tesseract
+        try {
+          const result = await Tesseract.recognize(blob, 'eng', {
+            workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.0/dist/worker.min.js',
+            langPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.0/dist/lang/',
+            corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.1.0/tesseract-core.wasm.js',
+            workerBlobURL: false,
+            numWorkers: workerCount
+          });
+          const { data } = result;
+          // Evaluate confidence
+          let maxConfidence = 0;
+          let extractedText = '';
+          data.words.forEach(word => {
+            if (word.confidence > maxConfidence) {
+              maxConfidence = word.confidence;
+            }
+            extractedText += word.text + ' ';
+          });
+
+          // Update bounding box color
+          if (maxConfidence >= confidenceThreshold) {
+            roiBox.style.borderColor = 'green';
+          } else {
+            roiBox.style.borderColor = 'red';
+          }
+
+          // We store extracted text in a global location, shown on demand:
+          extractedTextOutput.textContent = extractedText.trim();
+        } catch (error) {
+          console.error('Tesseract error:', error);
+          roiBox.style.borderColor = 'red';
+        }
+
+        requestAnimationFrame(processFrame);
+      }, 'image/png');
+    } else {
+      requestAnimationFrame(processFrame);
     }
-  });
+  }
 
-  // Preprocessing checkboxes and sliders
-  document.getElementById('grayscale-check').addEventListener('change', e => {
-    preprocessingOptions.grayscale = e.target.checked;
-  });
-  document.getElementById('highlight-check').addEventListener('change', e => {
-    preprocessingOptions.highlight = e.target.checked;
-  });
-  document.getElementById('highlight-slider').addEventListener('input', e => {
-    preprocessingOptions.highlightStrength = e.target.value;
-  });
-  document.getElementById('contrast-check').addEventListener('change', e => {
-    preprocessingOptions.contrast = e.target.checked;
-  });
-  document.getElementById('contrast-slider').addEventListener('input', e => {
-    preprocessingOptions.contrastValue = e.target.value;
-  });
-  document.getElementById('brightness-check').addEventListener('change', e => {
-    preprocessingOptions.brightness = e.target.checked;
-  });
-  document.getElementById('brightness-slider').addEventListener('input', e => {
-    preprocessingOptions.brightnessValue = e.target.value;
-  });
-  document.getElementById('threshold-check').addEventListener('change', e => {
-    preprocessingOptions.threshold = e.target.checked;
-  });
-  document.getElementById('threshold-slider').addEventListener('input', e => {
-    preprocessingOptions.thresholdValue = e.target.value;
-  });
-  document.getElementById('edge-check').addEventListener('change', e => {
-    preprocessingOptions.edge = e.target.checked;
-  });
-  document.getElementById('edge-slider').addEventListener('input', e => {
-    preprocessingOptions.edgeValue = e.target.value;
-  });
-
-  // OCR config
-  const workerCountInput = document.getElementById('worker-count');
-  workerCountInput.addEventListener('change', async e => {
-    ocrConfig.workerCount = parseInt(e.target.value, 10);
-    // Re-initialize Tesseract worker with updated worker count
-    await initTesseractWorker();
-  });
-
-  const confidenceThreshold = document.getElementById('confidence-threshold');
-  confidenceThreshold.addEventListener('input', e => {
-    ocrConfig.confidenceThreshold = parseInt(e.target.value, 10);
-    document.getElementById('confidence-value').innerText = e.target.value;
-  });
-
-  // Camera settings
-  document.getElementById('camera-select').addEventListener('change', e => {
-    currentDeviceId = e.target.value;
-  });
-  document.getElementById('resolution-select').addEventListener('change', e => {
-    const [w, h] = e.target.value.split('x');
-    currentResolution = { width: parseInt(w, 10), height: parseInt(h, 10) };
-  });
-  document.getElementById('apply-camera-settings').addEventListener('click', async () => {
-    closeModal('camera-settings-modal');
-    await initCamera();
-  });
-
-  // Extracted text display is updated on the fly in the OCR loop,
-  // but we can fetch the final recognized text upon opening text modal.
-  document.getElementById('extract-text-btn').addEventListener('click', async () => {
-    let textResult = 'No text recognized yet.';
-    try {
-      const { data } = await tesseractWorker.recognize(offscreenCanvas);
-      textResult = data.text.trim() || textResult;
-    } catch (err) {
-      console.error(err);
-    }
-    document.getElementById('extracted-text').textContent = textResult;
-  });
-}
-
-
-/********************************************
- * Modal Helpers
- ********************************************/
-function openModal(modalId) {
-  document.getElementById(modalId).style.display = 'block';
-}
-
-function closeModal(modalId) {
-  document.getElementById(modalId).style.display = 'none';
+  // Kick off the loop
+  requestAnimationFrame(processFrame);
 }
