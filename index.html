@@ -2,155 +2,144 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Web-Based OCR Scanner</title>
-  <!-- Dark theme and minimal design are enforced via styles.css -->
+  <title>Mobile OCR Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  
+  <!-- ===== CSS ===== -->
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- OpenCV.js (WASM-enabled) via CDN -->
-  <script 
-    defer
-    src="https://cdn.jsdelivr.net/npm/@techstark/opencv-js@1.3.0/dist/opencv.js"
-  ></script>
-
-  <!-- Tesseract.js (WASM-enabled) via CDN -->
-  <script 
-    defer
-    src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"
-  ></script>
-
-  <!-- Our main application script -->
-  <script defer src="app.js"></script>
+  <!-- ===== OpenCV.js (CDN) ===== -->
+  <!-- Note: "async" is optional, but recommended to improve load performance -->
+  <script async src="https://docs.opencv.org/4.x/opencv.js" type="text/javascript"></script>
+  
+  <!-- ===== Tesseract.js (CDN) ===== -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  
+  <!-- ===== Main JS ===== -->
+  <script defer src="script.js"></script>
 </head>
 <body>
-  <!-- MAIN HEADER / TITLE -->
-  <header class="app-header">
-    <h1>Web OCR Scanner</h1>
+  <header>
+    <h1>Mobile OCR Scanner</h1>
   </header>
 
-  <!-- MAIN CONTAINER FOR VIDEO & ROI -->
-  <div class="video-container">
-    <!-- Live video feed -->
-    <video id="video" autoplay muted playsinline></video>
-    <!-- Overlay bounding box for ROI -->
-    <div id="roiBox"></div>
-  </div>
+  <!-- Main container for video and bounding box -->
+  <section id="scanner-container">
+    <video id="video" autoplay playsinline muted></video>
+    <!-- The ROI bounding box (centered, absolute positioning) -->
+    <div id="roi-box"></div>
+  </section>
 
-  <!-- BUTTONS / CONTROLS (Minimalistic UI) -->
-  <div class="controls">
-    <button id="cameraSettingsBtn">Camera Settings</button>
-    <button id="preprocessingBtn">Preprocessing Settings</button>
-    <button id="ocrSettingsBtn">OCR Settings</button>
-    <button id="extractedTextBtn">Extracted Text</button>
-  </div>
+  <!-- Footer with action buttons -->
+  <footer>
+    <button id="camera-settings-btn" title="Camera Settings">&#9881;</button>
+    <button id="preprocess-btn" title="Preprocessing Settings">&#x1F3A8;</button>
+    <button id="ocr-config-btn" title="OCR Settings">&#128269;</button>
+    <button id="extract-text-btn" title="View Extracted Text">Extracted Text</button>
+  </footer>
 
-  <!-- ##################### MODALS ##################### -->
-
-  <!-- Camera Settings Modal -->
-  <div id="cameraSettingsModal" class="modal">
+  <!-- ===== Preprocessing Modal ===== -->
+  <div id="preprocess-modal" class="modal">
     <div class="modal-content">
-      <span class="close" id="closeCameraSettings">&times;</span>
-      <h2>Camera Settings</h2>
-      <div class="modal-body">
-        <label for="cameraSelect">Select Camera:</label>
-        <select id="cameraSelect"></select>
+      <span class="close" data-close="preprocess-modal">&times;</span>
+      <h2>Preprocessing Settings</h2>
+      
+      <div class="preprocess-control">
+        <label>
+          <input type="checkbox" id="grayscale-check" /> Grayscale
+        </label>
+      </div>
 
-        <label for="resolutionSelect">Resolution:</label>
-        <select id="resolutionSelect">
+      <div class="preprocess-control">
+        <label>
+          <input type="checkbox" id="highlight-check" /> Highlights
+        </label>
+        <input type="range" id="highlight-slider" min="0" max="100" value="50" />
+      </div>
+
+      <div class="preprocess-control">
+        <label>
+          <input type="checkbox" id="contrast-check" /> Contrast
+        </label>
+        <input type="range" id="contrast-slider" min="-100" max="100" value="0" />
+      </div>
+
+      <div class="preprocess-control">
+        <label>
+          <input type="checkbox" id="brightness-check" /> Brightness
+        </label>
+        <input type="range" id="brightness-slider" min="-100" max="100" value="0" />
+      </div>
+
+      <div class="preprocess-control">
+        <label>
+          <input type="checkbox" id="threshold-check" /> Threshold
+        </label>
+        <input type="range" id="threshold-slider" min="0" max="255" value="128" />
+      </div>
+
+      <div class="preprocess-control">
+        <label>
+          <input type="checkbox" id="edge-check" /> Edge Detection
+        </label>
+        <input type="range" id="edge-slider" min="1" max="5" value="1" />
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== OCR Config Modal ===== -->
+  <div id="ocr-config-modal" class="modal">
+    <div class="modal-content">
+      <span class="close" data-close="ocr-config-modal">&times;</span>
+      <h2>OCR Settings</h2>
+
+      <div class="ocr-setting">
+        <label for="worker-count">Web Workers:</label>
+        <input type="number" id="worker-count" min="1" max="4" value="1" />
+      </div>
+
+      <div class="ocr-setting">
+        <label for="confidence-threshold">Confidence Threshold:</label>
+        <input type="range" id="confidence-threshold" min="0" max="100" value="60" />
+        <span id="confidence-value">60</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Camera Settings Modal ===== -->
+  <div id="camera-settings-modal" class="modal">
+    <div class="modal-content">
+      <span class="close" data-close="camera-settings-modal">&times;</span>
+      <h2>Camera Settings</h2>
+
+      <div class="camera-setting">
+        <label for="camera-select">Camera Device:</label>
+        <select id="camera-select"></select>
+      </div>
+
+      <div class="camera-setting">
+        <label for="resolution-select">Resolution:</label>
+        <select id="resolution-select">
           <option value="640x480">640 x 480</option>
-          <option value="1280x720">1280 x 720</option>
+          <option value="1280x720" selected>1280 x 720</option>
           <option value="1920x1080">1920 x 1080</option>
         </select>
+      </div>
 
-        <button id="applyCameraSettingsBtn">Apply</button>
+      <div class="camera-setting">
+        <button id="apply-camera-settings">Apply</button>
       </div>
     </div>
   </div>
 
-  <!-- Preprocessing Modal -->
-  <div id="preprocessingModal" class="modal">
+  <!-- ===== Extracted Text Modal ===== -->
+  <div id="text-modal" class="modal">
     <div class="modal-content">
-      <span class="close" id="closePreprocessing">&times;</span>
-      <h2>Preprocessing Settings</h2>
-      <div class="modal-body">
-        <!-- Example checkboxes & sliders for each effect -->
-        <div class="setting">
-          <input type="checkbox" id="enableGray" />
-          <label for="enableGray">Grayscale</label>
-        </div>
-
-        <div class="setting">
-          <input type="checkbox" id="enableHighlight" />
-          <label for="enableHighlight">Highlights</label>
-          <input type="range" id="highlightSlider" min="1" max="100" value="50" />
-        </div>
-
-        <div class="setting">
-          <input type="checkbox" id="enableContrast" />
-          <label for="enableContrast">Contrast</label>
-          <input type="range" id="contrastSlider" min="1" max="100" value="50" />
-        </div>
-
-        <div class="setting">
-          <input type="checkbox" id="enableBrightness" />
-          <label for="enableBrightness">Brightness</label>
-          <input type="range" id="brightnessSlider" min="1" max="100" value="50" />
-        </div>
-
-        <div class="setting">
-          <input type="checkbox" id="enableThreshold" />
-          <label for="enableThreshold">Threshold</label>
-          <input type="range" id="thresholdSlider" min="1" max="255" value="128" />
-        </div>
-
-        <div class="setting">
-          <input type="checkbox" id="enableEdge" />
-          <label for="enableEdge">Edge Detection</label>
-          <input type="range" id="edgeSlider" min="1" max="7" value="3" />
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- OCR Settings Modal -->
-  <div id="ocrModal" class="modal">
-    <div class="modal-content">
-      <span class="close" id="closeOCR">&times;</span>
-      <h2>OCR Settings</h2>
-      <div class="modal-body">
-        <div class="setting">
-          <label for="workerCountSelect">Web Workers:</label>
-          <select id="workerCountSelect">
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-          </select>
-        </div>
-
-        <div class="setting">
-          <label for="confidenceThreshold">Confidence Threshold:</label>
-          <input 
-            type="number" 
-            id="confidenceThreshold" 
-            min="0" 
-            max="100" 
-            value="70" 
-            style="width:60px;"
-          />
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Extracted Text Modal -->
-  <div id="extractedTextModal" class="modal">
-    <div class="modal-content">
-      <span class="close" id="closeExtractedText">&times;</span>
+      <span class="close" data-close="text-modal">&times;</span>
       <h2>Extracted Text</h2>
-      <div class="modal-body">
-        <textarea id="extractedTextArea" rows="8" readonly></textarea>
-      </div>
+      <pre id="extracted-text"></pre>
     </div>
   </div>
+  
 </body>
 </html>
