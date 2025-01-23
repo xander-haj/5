@@ -118,23 +118,30 @@ async function initCamera() {
 /********************************************
  * Tesseract Initialization
  ********************************************/
+// --- initTesseractWorker (fixed code) ---
 async function initTesseractWorker() {
   if (tesseractWorker) {
     await tesseractWorker.terminate();
   }
+
   tesseractWorker = Tesseract.createWorker({
-    workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/worker.min.js',
-    langPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/lang/',
-    corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract-core.wasm.js',
+    // Use an explicit, known working version (e.g., 4.0.2 or newer)
+    workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/worker.min.js',
+    // Point to the correct tesseract-core.wasm.js in the tesseract.js-core package
+    corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@2.3.0/tesseract-core.wasm.js',
+    // Make sure this matches the same Tesseract version
+    langPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/lang',
     logger: m => {
-      // Optional: console.log(m);
+      // console.log(m);
     }
   });
 
+  // Now these calls will work as intended:
   await tesseractWorker.load();
   await tesseractWorker.loadLanguage('eng');
   await tesseractWorker.initialize('eng');
 }
+
 
 
 /********************************************
