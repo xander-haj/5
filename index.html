@@ -1,399 +1,156 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OCR Scanner Pro</title>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/modern-normalize/2.0.0/modern-normalize.min.css">
-    <style>
-        /* styles.css */
-        :root {
-            --bg-dark: #1a1a1a;
-            --surface: #2d2d2d;
-            --primary: #00ff88;
-            --error: #ff4444;
-            --text-primary: #ffffff;
-            --text-secondary: #cccccc;
-        }
+  <meta charset="UTF-8" />
+  <title>Web-Based OCR Scanner</title>
+  <!-- Dark theme and minimal design are enforced via styles.css -->
+  <link rel="stylesheet" href="styles.css" />
 
-        * {
-            box-sizing: border-box;
-        }
+  <!-- OpenCV.js (WASM-enabled) via CDN -->
+  <script 
+    defer
+    src="https://cdn.jsdelivr.net/npm/@techstark/opencv-js@1.3.0/dist/opencv.js"
+  ></script>
 
-        body {
-            margin: 0;
-            background-color: var(--bg-dark);
-            color: var(--text-primary);
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
+  <!-- Tesseract.js (WASM-enabled) via CDN -->
+  <script 
+    defer
+    src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"
+  ></script>
 
-        .toolbar {
-            padding: 1rem;
-            background: var(--surface);
-            display: flex;
-            gap: 0.5rem;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        button {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: var(--text-primary);
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: all 0.2s;
-        }
-
-        button:hover {
-            background: rgba(255,255,255,0.2);
-        }
-
-        .video-container {
-            flex: 1;
-            position: relative;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        #video {
-            max-width: 100%;
-            max-height: 80vh;
-            background: black;
-        }
-
-        .roi-box {
-            position: absolute;
-            width: 300px;
-            height: 150px;
-            border: 2px solid var(--error);
-            border-radius: 8px;
-            transition: border-color 0.3s;
-        }
-
-        .roi-box.active {
-            border-color: var(--primary);
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.8);
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .modal-content {
-            background: var(--surface);
-            padding: 2rem;
-            border-radius: 8px;
-            min-width: 400px;
-            max-width: 90%;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .modal-title {
-            margin: 0;
-            font-size: 1.25rem;
-        }
-
-        .settings-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .settings-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: var(--text-secondary);
-        }
-
-        .settings-row {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        input[type="range"] {
-            width: 200px;
-            accent-color: var(--primary);
-        }
-
-        #textOutput {
-            position: fixed;
-            bottom: 1rem;
-            right: 1rem;
-            background: var(--surface);
-            padding: 1rem;
-            border-radius: 4px;
-            max-width: 300px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-        }
-    </style>
+  <!-- Our main application script -->
+  <script defer src="app.js"></script>
 </head>
 <body>
-    <div class="toolbar">
-        <button id="btnPreprocess">
-            <span class="material-icons">tune</span>
-            Preprocessing
-        </button>
-        <button id="btnOCRSettings">
-            <span class="material-icons">settings</span>
-            OCR Settings
-        </button>
-        <button id="btnCameraSettings">
-            <span class="material-icons">photo_camera</span>
-            Camera
-        </button>
-    </div>
+  <!-- MAIN HEADER / TITLE -->
+  <header class="app-header">
+    <h1>Web OCR Scanner</h1>
+  </header>
 
-    <div class="video-container">
-        <video id="video" autoplay playsinline></video>
-        <div class="roi-box" id="roiBox"></div>
-    </div>
+  <!-- MAIN CONTAINER FOR VIDEO & ROI -->
+  <div class="video-container">
+    <!-- Live video feed -->
+    <video id="video" autoplay muted playsinline></video>
+    <!-- Overlay bounding box for ROI -->
+    <div id="roiBox"></div>
+  </div>
 
-    <div id="preprocessModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">Preprocessing Settings</h3>
-                <button onclick="closeModal('preprocessModal')">&times;</button>
-            </div>
-            <div class="settings-group">
-                <!-- Preprocessing controls will be dynamically added -->
-            </div>
+  <!-- BUTTONS / CONTROLS (Minimalistic UI) -->
+  <div class="controls">
+    <button id="cameraSettingsBtn">Camera Settings</button>
+    <button id="preprocessingBtn">Preprocessing Settings</button>
+    <button id="ocrSettingsBtn">OCR Settings</button>
+    <button id="extractedTextBtn">Extracted Text</button>
+  </div>
+
+  <!-- ##################### MODALS ##################### -->
+
+  <!-- Camera Settings Modal -->
+  <div id="cameraSettingsModal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="closeCameraSettings">&times;</span>
+      <h2>Camera Settings</h2>
+      <div class="modal-body">
+        <label for="cameraSelect">Select Camera:</label>
+        <select id="cameraSelect"></select>
+
+        <label for="resolutionSelect">Resolution:</label>
+        <select id="resolutionSelect">
+          <option value="640x480">640 x 480</option>
+          <option value="1280x720">1280 x 720</option>
+          <option value="1920x1080">1920 x 1080</option>
+        </select>
+
+        <button id="applyCameraSettingsBtn">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preprocessing Modal -->
+  <div id="preprocessingModal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="closePreprocessing">&times;</span>
+      <h2>Preprocessing Settings</h2>
+      <div class="modal-body">
+        <!-- Example checkboxes & sliders for each effect -->
+        <div class="setting">
+          <input type="checkbox" id="enableGray" />
+          <label for="enableGray">Grayscale</label>
         </div>
-    </div>
 
-    <div id="ocrModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">OCR Settings</h3>
-                <button onclick="closeModal('ocrModal')">&times;</button>
-            </div>
-            <div class="settings-group">
-                <label>Number of Workers</label>
-                <input type="number" id="workerCount" min="1" max="4" value="2">
-                
-                <label>Confidence Threshold</label>
-                <input type="range" id="confidenceThreshold" min="0" max="100" value="70">
-            </div>
+        <div class="setting">
+          <input type="checkbox" id="enableHighlight" />
+          <label for="enableHighlight">Highlights</label>
+          <input type="range" id="highlightSlider" min="1" max="100" value="50" />
         </div>
-    </div>
 
-    <div id="cameraModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">Camera Settings</h3>
-                <button onclick="closeModal('cameraModal')">&times;</button>
-            </div>
-            <div class="settings-group">
-                <label>Camera</label>
-                <select id="cameraSelect"></select>
-                
-                <label>Resolution</label>
-                <select id="resolutionSelect"></select>
-            </div>
+        <div class="setting">
+          <input type="checkbox" id="enableContrast" />
+          <label for="enableContrast">Contrast</label>
+          <input type="range" id="contrastSlider" min="1" max="100" value="50" />
         </div>
+
+        <div class="setting">
+          <input type="checkbox" id="enableBrightness" />
+          <label for="enableBrightness">Brightness</label>
+          <input type="range" id="brightnessSlider" min="1" max="100" value="50" />
+        </div>
+
+        <div class="setting">
+          <input type="checkbox" id="enableThreshold" />
+          <label for="enableThreshold">Threshold</label>
+          <input type="range" id="thresholdSlider" min="1" max="255" value="128" />
+        </div>
+
+        <div class="setting">
+          <input type="checkbox" id="enableEdge" />
+          <label for="enableEdge">Edge Detection</label>
+          <input type="range" id="edgeSlider" min="1" max="7" value="3" />
+        </div>
+      </div>
     </div>
+  </div>
 
-    <div id="textOutput"></div>
+  <!-- OCR Settings Modal -->
+  <div id="ocrModal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="closeOCR">&times;</span>
+      <h2>OCR Settings</h2>
+      <div class="modal-body">
+        <div class="setting">
+          <label for="workerCountSelect">Web Workers:</label>
+          <select id="workerCountSelect">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-    <script src="https://docs.opencv.org/master/opencv.js"></script>
-    <script>
-        // app.js
-        let videoStream = null;
-        let currentCameraId = null;
-        let currentResolution = null;
-        let ocrWorker = null;
-        let processing = false;
-        
-        const preprocessingSettings = {
-            grayscale: false,
-            contrast: 100,
-            brightness: 100,
-            threshold: 0,
-            edgeDetection: false
-        };
+        <div class="setting">
+          <label for="confidenceThreshold">Confidence Threshold:</label>
+          <input 
+            type="number" 
+            id="confidenceThreshold" 
+            min="0" 
+            max="100" 
+            value="70" 
+            style="width:60px;"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
 
-        document.addEventListener('DOMContentLoaded', async () => {
-            await checkCameraPermission();
-            setupEventListeners();
-            initializeOCR();
-        });
-
-        async function checkCameraPermission() {
-            try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const videoDevices = devices.filter(d => d.kind === 'videoinput');
-                if (videoDevices.length > 0 && localStorage.getItem('cameraAllowed')) {
-                    location.reload();
-                } else {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    stream.getTracks().forEach(track => track.stop());
-                    localStorage.setItem('cameraAllowed', 'true');
-                    location.reload();
-                }
-            } catch (error) {
-                alert('Camera access is required for this application');
-            }
-        }
-
-        function setupEventListeners() {
-            document.getElementById('btnPreprocess').addEventListener('click', () => openModal('preprocessModal'));
-            document.getElementById('btnOCRSettings').addEventListener('click', () => openModal('ocrModal'));
-            document.getElementById('btnCameraSettings').addEventListener('click', () => {
-                openModal('cameraModal');
-                populateCameraOptions();
-            });
-            
-            document.querySelectorAll('.modal').forEach(modal => {
-                modal.addEventListener('click', e => {
-                    if (e.target === modal) closeModal(modal.id);
-                });
-            });
-        }
-
-        async function initializeCamera(deviceId, resolution) {
-            if (videoStream) videoStream.getTracks().forEach(track => track.stop());
-            
-            const constraints = {
-                video: {
-                    deviceId: deviceId ? { exact: deviceId } : undefined,
-                    width: { ideal: resolution ? parseInt(resolution.split('x')[0]) : 1280 },
-                    height: { ideal: resolution ? parseInt(resolution.split('x')[1]) : 720 }
-                }
-            };
-
-            try {
-                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
-                const video = document.getElementById('video');
-                video.srcObject = videoStream;
-                await video.play();
-                startProcessingLoop();
-            } catch (error) {
-                console.error('Error initializing camera:', error);
-            }
-        }
-
-        async function populateCameraOptions() {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoDevices = devices.filter(d => d.kind === 'videoinput');
-            const cameraSelect = document.getElementById('cameraSelect');
-            
-            cameraSelect.innerHTML = videoDevices
-                .map(device => `<option value="${device.deviceId}">${device.label || 'Camera'}</option>`)
-                .join('');
-
-            cameraSelect.addEventListener('change', async () => {
-                currentCameraId = cameraSelect.value;
-                await initializeCamera(currentCameraId, currentResolution);
-            });
-
-            const resolutionSelect = document.getElementById('resolutionSelect');
-            resolutionSelect.innerHTML = `
-                <option value="640x480">640x480</option>
-                <option value="1280x720">1280x720</option>
-                <option value="1920x1080">1920x1080</option>
-            `;
-
-            resolutionSelect.addEventListener('change', async () => {
-                currentResolution = resolutionSelect.value;
-                await initializeCamera(currentCameraId, currentResolution);
-            });
-        }
-
-        async function initializeOCR() {
-            ocrWorker = await Tesseract.createWorker({
-                logger: m => console.log(m),
-                workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/worker.min.js',
-                langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-                corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4/tesseract-core.wasm.js',
-            });
-        }
-
-        async function processFrame() {
-            if (processing) return;
-            processing = true;
-
-            const video = document.getElementById('video');
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            canvas.width = 300;
-            canvas.height = 150;
-            
-            const roiRect = document.getElementById('roiBox').getBoundingClientRect();
-            ctx.drawImage(
-                video,
-                roiRect.left, roiRect.top, roiRect.width, roiRect.height,
-                0, 0, canvas.width, canvas.height
-            );
-
-            let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            let src = cv.matFromImageData(imageData);
-            
-            // Apply preprocessing
-            if (preprocessingSettings.grayscale) {
-                cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY);
-            }
-            
-            // Convert back to RGBA for display
-            cv.cvtColor(src, src, cv.COLOR_GRAY2RGBA);
-            cv.imshow(canvas, src);
-            
-            try {
-                const { data: { text, confidence } } = await ocrWorker.recognize(canvas);
-                document.getElementById('roiBox').classList.toggle('active', confidence >= 70);
-                document.getElementById('textOutput').textContent = text;
-            } catch (error) {
-                console.error('OCR Error:', error);
-            }
-
-            src.delete();
-            processing = false;
-        }
-
-        function startProcessingLoop() {
-            function loop() {
-                if (document.getElementById('video').readyState === HTMLMediaElement.HAVE_ENOUGH_DATA) {
-                    processFrame();
-                }
-                requestAnimationFrame(loop);
-            }
-            requestAnimationFrame(loop);
-        }
-
-        function openModal(id) {
-            document.getElementById(id).style.display = 'flex';
-        }
-
-        function closeModal(id) {
-            document.getElementById(id).style.display = 'none';
-        }
-
-        // Initialize default camera
-        initializeCamera();
-    </script>
+  <!-- Extracted Text Modal -->
+  <div id="extractedTextModal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="closeExtractedText">&times;</span>
+      <h2>Extracted Text</h2>
+      <div class="modal-body">
+        <textarea id="extractedTextArea" rows="8" readonly></textarea>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
