@@ -1,0 +1,145 @@
+/* Dark-themed, sleek, minimalistic styling */
+
+/* Global resets & theme */
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+  background-color: #111; /* dark background */
+  color: #ccc; /* light text */
+}
+
+/* Header */
+.app-header {
+  padding: 1rem;
+  text-align: center;
+  background: #222;
+  border-bottom: 1px solid #333;
+}
+
+.app-header h1 {
+  margin: 0;
+  color: #eee;
+  font-weight: 300;
+}
+
+/* Video Container */
+.video-container {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  margin: 1rem auto;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#video {
+  width: 100%;
+  height: auto;
+  background: #333;
+}
+
+/* ROI box - default red border */
+#roiBox {
+  position: absolute;
+  border: 2px solid red; /* dynamically changed to green if text is detected */
+  pointer-events: none; /* let clicks pass through */
+  box-sizing: border-box;
+  transition: border-color 0.3s ease;
+}
+
+/* Controls */
+.controls {
+  text-align: center;
+  margin: 1rem auto;
+  max-width: 900px;
+}
+
+.controls button {
+  background: #333;
+  color: #ccc;
+  border: 1px solid #666;
+  padding: 0.5rem 1rem;
+  margin: 0.25rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.controls button:hover {
+  background: #444;
+}
+
+/* Modals */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; 
+  z-index: 999; 
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto; 
+  background-color: rgba(0,0,0,0.7); /* overlay */
+}
+
+/* Modal Content Box */
+.modal-content {
+  background-color: #222;
+  margin: 10% auto; 
+  padding: 1rem;
+  border: 1px solid #444;
+  width: 90%;
+  max-width: 500px;
+  position: relative;
+  border-radius: 4px;
+}
+
+/* Close Button */
+.close {
+  color: #999;
+  float: right;
+  font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.close:hover, .close:focus {
+  color: #ccc;
+}
+
+/* Modal Body */
+.modal-body {
+  margin-top: 1rem;
+}
+
+/* Preprocessing setting group styles */
+.setting {
+  margin: 0.5rem 0;
+  display: flex;
+  align-items: center;
+}
+
+.setting label {
+  flex: 1;
+}
+
+.setting input[type="checkbox"] {
+  margin-right: 0.5rem;
+}
+
+.setting input[type="range"] {
+  margin-left: 0.5rem;
+  flex: 1;
+  max-width: 200px;
+}
+
+/* Textarea for extracted text */
+#extractedTextArea {
+  width: 100%;
+  background: #111;
+  color: #ccc;
+  border: 1px solid #666;
+  resize: none;
+}
